@@ -1,9 +1,12 @@
+""" Plotting related routines """
+
 from matplotlib.pyplot import title, tight_layout, savefig, close, show
 from matplotlib.pyplot import figure, xlabel, xlim, ylim
 from matplotlib.pyplot import ylabel, plot, scatter, hlines
 from matplotlib.pyplot import rcParams
 from numpy import diff, argsort
 from numpy import min, max
+from settings import true_pars
 
 
 def plot_ML_est(like_str, save_mode,
@@ -24,7 +27,10 @@ def plot_ML_est(like_str, save_mode,
     data_p = -diff(Sf)
     data_p_true = -diff(Sftrue)
     ylabel('Daily New Cases')
-    ylim(0, 400)
+    if true_pars['gamma']>1/10:  # we used 1/14 for ODE and 1/7 for Gillespie
+        ylim(0, 700)
+    else:
+        ylim(0, 400)  
 
     xlim(0, len(data_p))
     xlabel('Time [arb. units] \n $\ell_{%s}(\\theta^{*})=$ %6.2e' %
@@ -44,7 +50,7 @@ def plot_ML_est(like_str, save_mode,
         show()
 
 
-def plot_CI(param_name, save_mode, fig_path, data, CIlist, crit, min_ll):
+def plot_CI(param_name, save_mode, fig_path, data, CIlist, crit, min_ll, k, seedval):
     '''Plot likelihood profile with confidence interval'''
     
     if param_name == 'R0':
@@ -82,7 +88,7 @@ def plot_CI(param_name, save_mode, fig_path, data, CIlist, crit, min_ll):
     ylabel(y_label)
     tight_layout()
     if save_mode is True:
-        savefig(fig_path + '%s_CI.png' % param_name, dpi=150)
+        savefig(fig_path + '%s_CI_%g_%d.png' % (param_name, k, seedval), dpi=150)
         close()
     else:
         show()

@@ -2,11 +2,16 @@
 
     Input: filename (one realisation per row)
     Output: 
-        - Figures (in ../outputs/.../.../fits/'
-        - Inferred parameters (in ../outputs/dir1/dir2/arrays/')
-        - Initial conditions (in ../outputs/dir1/dir2/arrays/')
-        where dir1 is outputs_%s with %s = filename (without extension)
-              dir2 is %s with %s = likelihood string (N/P/G)
+        - Figures (in ../outputs/dir1/dir2/dir3/fits/')
+        - Inferred parameters (in ../outputs/dir1/dir2/dir3/arrays/')
+        - Initial conditions (in ../outputs/dir1/dir2/dir3/arrays/')
+        where dir1 is horizon_%d with %d = tmax
+              dir2 is outputs_%s with %s = filename (without extension)
+              dir3 is %s with %s = likelihood string (N/P/G)
+
+    Use NIPE_0005 or mNIPE_0005 to launch analysis on cluster: 
+        qsub NIPE_0005 (job array)
+        qsub -t 350 mNIPE_0005
 """
 
 from scipy.optimize import fmin, minimize
@@ -153,58 +158,56 @@ def runall(fname, tmax, tcount, like_str='N', nb_ICs=10,
     # Set initial conditions (common to all -- to reduce time)
     inits = set_initial_conditions(True, int(nb_ICs))
 
-    # create array to hold overall results (4 pars + 1 min ll)
-    metares = zeros([len(data), 5], dtype=float)
-
     # Solve ODE for true parameters for reference
     SIRepidemic = SIR_R0_model(N, I0, true_pars)
     _, St, _, _ = SIRepidemic.run(tmin=0, tmax=int(tmax), tcount=int(tcount))
 
-    # Looping over each dataline
-    for j in range(len(data)):
-        print(j, flush=True)
-        print('Finding MLE', flush=True)
+    # Decrement seedval by 1 because job arrays only start from 1
+    seedval = int(seedval) - 1  # if passed on the command line, seedval will be a string
 
-        data_m = data[j]  # Incidence data
+    print(seedval, flush=True)
+    print('Finding MLE', flush=True)
 
-        # Purely for information
-        true_ll = likelihood(like_str,
-                             data[j], -diff(St),
-                             *(N, true_pars['k']))
-        print('true_ll = %6.2f' % true_ll)
+    data_m = data[seedval]  # Incidence data
 
-        # pre-defined fixed arguments (none of these are subject to inference)
-        fixed_pars = (like_str, data_m, N, I0, int(tmax), int(tcount))
+    # Purely for information
+    true_ll = likelihood(like_str,
+                         data[seedval], -diff(St),
+                         *(N, true_pars['k']))
+    print('true_ll = %6.2f' % true_ll)
 
-        # find MLE
-        min_pars, min_ll = find_MLE(inits, fixed_pars, optim)
+    # pre-defined fixed arguments (none of these are subject to inference)
+    fixed_pars = (like_str, data_m, N, I0, int(tmax), int(tcount))
 
-        # run SIR epidemic with MLE parameters
-        SIRepidemic = SIR_R0_model(N, I0, min_pars)
-        _, Sf, If, _ = SIRepidemic.run(tmin=0, tmax=int(tmax), tcount=int(tcount))
+    # find MLE
+    min_pars, min_ll = find_MLE(inits, fixed_pars, optim)
 
-        # plot MLE results
-        plot_data = (Sf, If, data_m, j, min_ll, min_pars, min_pars['R0'], St, optim)
-        if bool(save_mode) is True:
-            fig_path = '../outputs/outputs_%s/%s/fits/' % \
-                (foldername, like_str)
-            Path(fig_path).mkdir(parents=True, exist_ok=True)
-        else:
-            fig_path = ''
-        plot_ML_est(like_str, bool(save_mode), fig_path, plot_data)
+    # run SIR epidemic with MLE parameters
+    SIRepidemic = SIR_R0_model(N, I0, min_pars)
+    _, Sf, If, _ = SIRepidemic.run(tmin=0, tmax=int(tmax), tcount=int(tcount))
 
-        # ------- STORE CURRENT RESULTS TO ARRAY -------
-        metares[j] = [min_pars['R0'], min_pars['k'],
-                      min_pars['n'], min_pars['gamma'],
-                      min_ll]
+    # plot MLE results
+    plot_data = (Sf, If, data_m, seedval, min_ll, min_pars, min_pars['R0'], St, optim)
+    if bool(save_mode) is True:
+        fig_path = '../outputs/horizon%d/outputs_%s/%s/fits/' % \
+            (tmax, foldername, like_str)
+        Path(fig_path).mkdir(parents=True, exist_ok=True)
+    else:
+        fig_path = ''
+    plot_ML_est(like_str, bool(save_mode), fig_path, plot_data)
+
+    # ------- STORE CURRENT RESULTS TO ARRAY -------
+    metares = [min_pars['R0'], min_pars['k'],
+               min_pars['n'], min_pars['gamma'],
+               min_ll]
 
     # ------- SAVE OVERALL RESULTS TO NPY ------
     if bool(save_mode) is True:
-        res_path = '../outputs/outputs_%s/%s/arrays/' % \
-            (foldername, like_str)
+        res_path = '../outputs/horizon%d/outputs_%s/%s/arrays/' % \
+            (tmax, foldername, like_str)
         Path(res_path).mkdir(parents=True, exist_ok=True)
-        save(res_path+'%s%spars.npy' % (j + 1, optim), metares)  # j+1 runs
-        save(res_path+'%s%sinits.npy' % (j + 1, optim), inits)
+        save(res_path+'%s%spars.npy' % (seedval, optim), metares)
+        save(res_path+'%s%sinits.npy' % (seedval, optim), inits)
 
 
 if __name__ == '__main__':
@@ -220,4 +223,4 @@ if __name__ == '__main__':
         #         save_mode (bool, def=True),
         #         seedval (def=102)
         #         optimisation method (def='NM')
-        runall('ODE_with_noise_negbin.csv', 150, 201, 'N', 15, True, 42)
+        runall('ODE_with_noise_negbin_0p0005.csv', 150, 201, 'N', 15, True, 42, '_NM_')

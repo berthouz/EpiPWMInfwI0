@@ -1,0 +1,8 @@
+#!/bin/sh
+#$ -jc test.short -t 1:370 -pe openmp 1 -q smp.q@@HP-16c-64G
+module add root/6.18.04-gcc7.2-python3
+module add python-3.7.8-gcc-7.2.0-ef2duiq
+module add SciPy-bundle/2020.03-foss-2020a-Python-3.8.2
+module add matplotlib/3.3.3-foss-2020b
+cd /its/home/lb203/src/EpiPWMInf/src
+python calculateCIs.py $SGE_TASK_ID

@@ -1,3 +1,5 @@
+""" Confidence interval related routines """
+
 from scipy.stats import chi2
 from numpy import zeros, delete, array
 from scipy.optimize import fmin
@@ -64,7 +66,7 @@ def find_MLE_given_param(init, fixed_pars, param_name, param_val):
     return min_pars, final_nll
 
 
-def find_CI(param_name, mle_pars, mle_ll_val, param_tick,
+def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks, 
             data_m, like_str, tmax, tcount, N, I0):
     '''Procedure to determine confidence interval for param param_name
 
@@ -77,6 +79,7 @@ def find_CI(param_name, mle_pars, mle_ll_val, param_tick,
         mle_pars: MLE parameters
         mle_ll_val: likelihood value from MLE
         param_tick: the search step
+        nb_ticks: the number of ticks
         data_m: the data
         like_str: which likelihood
         tmax: for simulations
@@ -88,7 +91,6 @@ def find_CI(param_name, mle_pars, mle_ll_val, param_tick,
         mydata: array of ML estimates + likelihood
     '''
 
-    nb_ticks = 150  # Need to be even
     crit = chi2.isf(0.01, 1)  # 99% intervals (1-0.99=0.01)
     CIres = zeros([nb_ticks, 5])  # 4 MLE pars + 1 ll value
     CIlist = []
