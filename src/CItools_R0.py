@@ -10,25 +10,35 @@ def xopt_2_dict_given_param(xopt, param_name, param_val):
     '''Specify dictionary of parameters given that
        parameter param_name wasn't involved in inference'''
 
-    if param_name == 'R0':
-        return {'R0': param_val,
-                'k': xopt[0],
-                'n': xopt[1],
-                'gamma': xopt[2]}
-    elif param_name == 'k':
-        return {'R0': xopt[0],
-                'k': param_val,
-                'n': xopt[1],
-                'gamma': xopt[2]}
-    elif param_name == 'n':
-        return {'R0': xopt[0],
-                'k': xopt[1],
-                'n': param_val,
-                'gamma': xopt[2]}
-    elif param_name == 'gamma':
-        return {'R0': xopt[0],
+    if param_name == 'I0':
+        return {'I0': param_val,
+                'R0': xopt[0],
                 'k': xopt[1],
                 'n': xopt[2],
+                'gamma': xopt[3]}
+    elif param_name == 'R0':
+        return {'I0': xopt[0],
+                'R0': param_val,
+                'k': xopt[1],
+                'n': xopt[2],
+                'gamma': xopt[3]}
+    elif param_name == 'k':
+        return {'I0': xopt[0],
+                'R0': xopt[1],
+                'k': param_val,
+                'n': xopt[2],
+                'gamma': xopt[3]}
+    elif param_name == 'n':
+        return {'I0': xopt[0],
+                'R0': xopt[1],
+                'k': xopt[2],
+                'n': param_val,
+                'gamma': xopt[3]}
+    elif param_name == 'gamma':
+        return {'I0': xopt[0],
+                'R0': xopt[1],
+                'k': xopt[2],
+                'n': xopt[3],
                 'gamma': param_val}
     else:
         print('Specified parameter does not exist', flush=True)
@@ -42,14 +52,16 @@ def find_MLE_given_param(init, fixed_pars, param_name, param_val):
        init: we use inferred parameters as single initial cond
        fixed_pars: usual set but to be extended with known par'''
 
-    if param_name == 'R0':
+    if param_name == 'I0':
         init = delete(init, 0)
-    elif param_name == 'k':
+    if param_name == 'R0':
         init = delete(init, 1)
-    elif param_name == 'n':
+    elif param_name == 'k':
         init = delete(init, 2)
-    elif param_name == 'gamma':
+    elif param_name == 'n':
         init = delete(init, 3)
+    elif param_name == 'gamma':
+        init = delete(init, 4)
     else:
         print('Specified parameter does not exist', flush=True)
         return -1
@@ -66,8 +78,8 @@ def find_MLE_given_param(init, fixed_pars, param_name, param_val):
     return min_pars, final_nll
 
 
-def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks, 
-            data_m, like_str, tmax, tcount, N, I0):
+def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks,
+            data_m, like_str, tmax, tcount, N):
     '''Procedure to determine confidence interval for param param_name
 
     Likelihood profile method. We calculate the 99% profile-likelihood 
@@ -85,24 +97,23 @@ def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks,
         tmax: for simulations
         tcount: for simulations
         N: size of system
-        I0: initial time for simulations
 
     Ouputs:
         mydata: array of ML estimates + likelihood
     '''
 
     crit = chi2.isf(0.01, 1)  # 99% intervals (1-0.99=0.01)
-    CIres = zeros([nb_ticks, 5])  # 4 MLE pars + 1 ll value
+    CIres = zeros([nb_ticks, 6])  # 5 MLE pars + 1 ll value
     CIlist = []
 
     like_ci = mle_ll_val  # based on min likelihood
-    fixed_pars = (like_str, data_m, N, I0, tmax, tcount)
+    fixed_pars = (like_str, data_m, N, tmax, tcount)
     param_val = mle_pars[param_name]
 
-    init = array([mle_pars['R0'], mle_pars['k'],
+    init = array([mle_pars['I0'], mle_pars['R0'], mle_pars['k'],
                   mle_pars['n'], mle_pars['gamma']])
 
-    CIres[0, :] = array([mle_pars['R0'], mle_pars['k'],
+    CIres[0, :] = array([mle_pars['I0'], mle_pars['R0'], mle_pars['k'],
                          mle_pars['n'], mle_pars['gamma'], mle_ll_val])
 
     idx = 1
@@ -111,7 +122,7 @@ def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks,
         param_val -= param_tick
         xopts, like_ci = find_MLE_given_param(init, fixed_pars,
                                               param_name, param_val)
-        CIres[idx, :] = array([xopts['R0'], xopts['k'],
+        CIres[idx, :] = array([xopts['I0'], xopts['R0'], xopts['k'],
                                xopts['n'], xopts['gamma'], like_ci])
 
         if -(like_ci - mle_ll_val) >= -crit / 2:  # within CI
@@ -130,7 +141,7 @@ def find_CI(param_name, mle_pars, mle_ll_val, param_tick, nb_ticks,
         param_val += param_tick
         xopts, like_ci = find_MLE_given_param(init, fixed_pars,
                                               param_name, param_val)
-        CIres[idx, :] = array([xopts['R0'], xopts['k'],
+        CIres[idx, :] = array([xopts['I0'], xopts['R0'], xopts['k'],
                                xopts['n'], xopts['gamma'], like_ci])
 
         if -(like_ci - mle_ll_val) >= -crit / 2:

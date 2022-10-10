@@ -3,10 +3,10 @@ from numpy import array, linspace, concatenate
 
 '''SIR homogeneous pairwise model (reparametrised for $R_0$)'''
 class SIR_R0_model():
-    def __init__(self, N, I0, dict_pars):
+    def __init__(self, N, dict_pars):
 
         self.N = N
-        self.I = I0
+        self.I = dict_pars['I0']
         self.n = dict_pars['n']
         self.R0 = dict_pars['R0']
         self.gamma = dict_pars['gamma']

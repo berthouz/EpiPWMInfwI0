@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-from settings import N, I0, true_pars
+from settings import N, true_pars
 from numpy import random, where, delete, savetxt, mean, std, empty, save
 from plotting_R0 import plot_CI
 from CItools_R0 import find_CI
@@ -30,10 +30,10 @@ def runall(seedval):
 
     seedval = int(seedval) - 1  # Needed because cluster doesn't accept job indices starting at 0. 
 
-    tmax = 150
+    tmax = 100
     tcount = 201
     like_str = 'N'
-    k = 0.0005
+    k = 0.0  # Gillespie don't have a dispersion parameter but we will infer one
 
     true_gamma = true_pars['gamma']
     true_n = true_pars['n']
@@ -41,7 +41,7 @@ def runall(seedval):
 
     true_pars.update({'k': k})  # To avoid having to edit settings.py separately
 
-    fname = 'ODE_with_noise_negbin_%s.csv' % str(k).replace('.','p')
+    fname = 'Gillespie.csv'
     optim = '_NM_'
     foldername = splitext(fname)[0]
     res_path = '../outputs/horizon%s/outputs_%s/%s/arrays/' % \
@@ -51,17 +51,6 @@ def runall(seedval):
 
     # Load results to analyse
     res = np.load(res_path+'%s%spars.npy' % ('all', optim))  # After combining all files from cluster
-
-
-    # --------------------------------------------------
-    #           Exclude outliers: estimated n > N 
-    # --------------------------------------------------
-
-    outlierIdx = where(res[:,2]>N)[0]
-    if len(outlierIdx)>0:
-        print('Excluding %d estimates' % len(outlierIdx))
-        res = delete(res, outlierIdx, axis=0)
-
 
     CIres = empty((1,3))
 
@@ -74,19 +63,20 @@ def runall(seedval):
     data_m = data[int(seedval)]  # Incidence data
 
     # Get ML parameters and min_ll
-    min_pars = {'R0': res[int(seedval), 0],
-                'k': res[int(seedval), 1],
-                'n': res[int(seedval), 2],
-                'gamma': res[int(seedval), 3]}
-    min_ll = res[int(seedval), 4]
+    min_pars = {'I0': res[int(seedval), 0],
+                'R0': res[int(seedval), 1],
+                'k': res[int(seedval), 2],
+                'n': res[int(seedval), 3],
+                'gamma': res[int(seedval), 4]}
+    min_ll = res[int(seedval), 5]
 
-    # Find confidence interval for tau
+    # Find confidence interval for R0
     print('Calculating confidence interval', flush=True)
     R0_tick = 0.005
     nb_ticks = 150  # This value may be insufficient for high values of the dispersion parameter -- increase to 300 for example
     mydata, CIlist, crit = find_CI('R0', min_pars, min_ll, R0_tick, nb_ticks, 
                                 data_m, like_str,
-                                int(tmax), int(tcount), N, I0)
+                                int(tmax), int(tcount), N)
 
     plot_CI('R0', True, fig_path, mydata, CIlist, crit, min_ll, true_pars['k'], int(seedval))
     print('CI = %f with max = %f and min = %f' % ((max(CIlist)-min(CIlist)), min(CIlist), max(CIlist)))

@@ -13,7 +13,7 @@ def plot_ML_est(like_str, save_mode,
                 fig_path, plot_data, true_params=False):
     '''Plot results from ML estimation'''
 
-    Sf, _, data_m, j, like, min_pars, _, Sftrue, optim = plot_data
+    Sf, _, data_m, j, like, min_pars, _, optim = plot_data
 
     figure(figsize=(9, 6))
     rcParams.update({'font.size': 16})
@@ -25,7 +25,6 @@ def plot_ML_est(like_str, save_mode,
         title('Sim %s \n %s objective' % (j, like_lat))
 
     data_p = -diff(Sf)
-    data_p_true = -diff(Sftrue)
     ylabel('Daily New Cases')
     if true_pars['gamma']>1/10:  # we used 1/14 for ODE and 1/7 for Gillespie
         ylim(0, 700)
@@ -35,13 +34,13 @@ def plot_ML_est(like_str, save_mode,
     xlim(0, len(data_p))
     xlabel('Time [arb. units] \n $\ell_{%s}(\\theta^{*})=$ %6.2e' %
            (like_str, like) +
+           '   $I0=$ %2.1f' % min_pars['I0'] +
            '   $R0^{*}=$ %4.2f   $k^{*}=$%6.4f' %
            (min_pars['R0'], min_pars['k']) +
            '   $n^{*}=$ %3.1f   $\\gamma^{*}=$%6.4f' %
            (min_pars['n'], min_pars['gamma']))
     plot(data_m)
     plot(data_p)
-    plot(data_p_true)
     tight_layout()
     if save_mode is True:
         savefig(fig_path + '%03d_fit%s.png' % (j, optim), dpi=150)
@@ -53,20 +52,24 @@ def plot_ML_est(like_str, save_mode,
 def plot_CI(param_name, save_mode, fig_path, data, CIlist, crit, min_ll, k, seedval):
     '''Plot likelihood profile with confidence interval'''
     
-    if param_name == 'R0':
+    if param_name == 'I0':
         res_idx = 0
+        x_label = '$I0$'
+        y_label = '$\ell(I0)$'
+    if param_name == 'R0':
+        res_idx = 1
         x_label = '$R_0$'
         y_label = '$\ell(R_0)$'
     elif param_name == 'k':
-        res_idx = 1
+        res_idx = 2
         x_label = '$k$'
         y_label = '$\ell(k)$'
     elif param_name == 'n':
-        res_idx = 2
+        res_idx = 3
         x_label = '$n$'
         y_label = '$\ell(n)$'
     elif param_name == 'gamma':
-        res_idx = 3
+        res_idx = 4
         x_label = '$\gamma$'
         y_label = '$\ell(\gamma)$'
 
@@ -79,8 +82,8 @@ def plot_CI(param_name, save_mode, fig_path, data, CIlist, crit, min_ll, k, seed
 
     figure(figsize=(9, 6))
     rcParams.update({'font.size': 16})
-    plot(data[sorted_idx, res_idx], - (data[sorted_idx, 4] - min_ll), color='blue')
-    scatter(data[sorted_idx, res_idx], - (data[sorted_idx, 4] - min_ll),
+    plot(data[sorted_idx, res_idx], - (data[sorted_idx, 5] - min_ll), color='blue')
+    scatter(data[sorted_idx, res_idx], - (data[sorted_idx, 5] - min_ll),
             color='blue', s=10)
     hlines(-crit/2, min(data[:, res_idx]), max(data[:, res_idx]), linestyle='--')
     hlines(-crit/2, min(CIlist), max(CIlist), color='orange', alpha=0.9)

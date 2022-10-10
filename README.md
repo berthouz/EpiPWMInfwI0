@@ -1,9 +1,12 @@
-# EpiPWMInf.git
-Pair-wise model parameter inference
+# EpiPWMInfwI0.git
+Pair-wise model parameter inference from Gillespie realisations
 
-Code used to perform the ML inference on data obtained directly from the pair-wise mean-field model with negative binomial noise in paper "Approximate likelihoods and limits of information content in data for inference of epidemics on networks" by Kiss et al. 
+Code used to perform the ML inference on Gillespie realisations in paper "Approximate likelihoods and limits of information content in data for inference of epidemics on networks" by Kiss et al. The key difference with code from EpiPWMInf is that here we also infer $I_0$ to model the stochasticity in the onset of the exponential growth. It is possible to do without but fit is much poorer.
 
-Folder data contains example files of data from the pair-wise mean-field model with negative binomial noise (dispersion level 0.05, 0.01, 0.005, 0.001, 0.0005)
+Folder data contains:
+* Folder DataGillespieSim containing 500 realisations (130 of which died out)
+* Gillespie.csv: file produced using src/processGillespieSims and containing incidence data (370 realisations) on each (integer) day
+
 
 Folder src contains the course code:
 * NIPE_0005, mNIPE_0005, CI_0005, mCI_0005: sample scripts to launch code on cluster (see headers of main_R0.py and calculateCIs)
@@ -16,4 +19,4 @@ Folder src contains the course code:
 * settings.py: General parameters
 * combinedOutputs.py: Combine output files from cluster job arrays. Needed before running createFigures.py.
 * createFigures.py: Produces figures from paper. 
-* checkPars.py: Convenience routine to compare estimated parameters with true parameters
+* processGillespieSims.py: Processes the raw Gillespie simulations to make them inference ready (integer day)

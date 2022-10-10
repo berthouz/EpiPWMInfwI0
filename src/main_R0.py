@@ -1,4 +1,4 @@
-""" Infer parameters using ML given noisified ODE realisations
+""" Infer parameters using ML given Gillespie realisations
 
     Input: filename (one realisation per row)
     Output: 
@@ -29,21 +29,23 @@ from plotting_R0 import plot_ML_est
 
 from os.path import splitext
 
-from settings import N, I0, true_pars
+from settings import N, true_pars
 
 
 def pretty_print_params(pars, preamble=''):
     '''Formatted printing of inferred parameters for easy reading'''
     if isinstance(pars, dict):
-        print(preamble+': %2.1f, %f, %3.1f, %4.3f' % (pars['R0'],
-                                                      pars['k'],
-                                                      pars['n'],
-                                                      pars['gamma']))
+        print(preamble+': %2.1f, %2.1f, %f, %3.1f, %4.3f' % (pars['I0'],
+                                                             pars['R0'],
+                                                             pars['k'],
+                                                             pars['n'],
+                                                             pars['gamma']))
     else:
-        print(preamble+': %2.1f, %f, %3.1f, %4.3f' % (pars[0],
-                                                      pars[1],
-                                                      pars[2],
-                                                      pars[3]))
+        print(preamble+': %2.1f, %2.1f, %f, %3.1f, %4.3f' % (pars[0],
+                                                             pars[1],
+                                                             pars[2],
+                                                             pars[3],
+                                                             pars[4]))
 
 
 def get_data(filename, tmax, tcount):
@@ -64,8 +66,9 @@ def get_data(filename, tmax, tcount):
 
 
 def generate_random_initial_conditions(nb_initial_confs):
-    space = Space(  # (R0, k, n and gamma in that order)
-        [Real(low=0.2, high=10, prior='uniform', transform='identity'),
+    space = Space(  # (I0, R0, k, n and gamma in that order)
+        [Real(low=0.01, high=10, prior='uniform', transform='identity'),
+         Real(low=0.2, high=10, prior='uniform', transform='identity'),
          Real(low=0.00001, high=0.05, prior='uniform', transform='identity'),
          Real(low=3, high=20, prior='uniform', transform='identity'),
          Real(low=0.001, high=0.1, prior='uniform', transform='identity')])
@@ -82,8 +85,8 @@ def generate_random_initial_conditions(nb_initial_confs):
     # Alternative choice: tau<0.1  
     to_delete = []  # list of indices to delete
     for i, init in enumerate(inits):
-        if ((init[2] - 1) - init[0]) < 1.5:
-        # tau = init[2] * init[3] / ((init[2] - 1) - init[0])
+        if ((init[3] - 1) - init[1]) < 1.5:
+        # tau = init[3] * init[4] / ((init[3] - 1) - init[1])
         # if (tau < 0) or (tau > 0.1):
             # print('Deleting initial condition no %d' % i)
             to_delete.append(i)
@@ -98,7 +101,7 @@ def set_initial_conditions(random=True, nb_initial_confs=5):
     if random:
         return generate_random_initial_conditions(nb_initial_confs)
     else:
-        return [[true_pars['R0'], true_pars['k'],
+        return [[true_pars['I0'], true_pars['R0'], true_pars['k'],
                  true_pars['n'], true_pars['gamma']]]
 
 
@@ -138,10 +141,11 @@ def find_MLE(inits, fixed_pars, optim='_NM_'):
 
         if final_nll < min_ll:
             min_ll = final_nll
-            min_pars = {'R0': xopt[0],
-                        'k': xopt[1],
-                        'n': xopt[2],
-                        'gamma': xopt[3]}
+            min_pars = {'I0': xopt[0], 
+                        'R0': xopt[1],
+                        'k': xopt[2],
+                        'n': xopt[3],
+                        'gamma': xopt[4]}
 
     return min_pars, min_ll
 
@@ -158,36 +162,26 @@ def runall(fname, tmax, tcount, like_str='N', nb_ICs=10,
     # Set initial conditions (common to all -- to reduce time)
     inits = set_initial_conditions(True, int(nb_ICs))
 
-    # Solve ODE for true parameters for reference
-    SIRepidemic = SIR_R0_model(N, I0, true_pars)
-    _, St, _, _ = SIRepidemic.run(tmin=0, tmax=int(tmax), tcount=int(tcount))
-
     # Decrement seedval by 1 because job arrays only start from 1
     seedval = int(seedval) - 1  # if passed on the command line, seedval will be a string
 
     print(seedval, flush=True)
     print('Finding MLE', flush=True)
 
-    data_m = data[seedval]  # Incidence data
-
-    # Purely for information
-    true_ll = likelihood(like_str,
-                         data[seedval], -diff(St),
-                         *(N, true_pars['k']))
-    print('true_ll = %6.2f' % true_ll)
+    data_m = data[j]  # Incidence data
 
     # pre-defined fixed arguments (none of these are subject to inference)
-    fixed_pars = (like_str, data_m, N, I0, int(tmax), int(tcount))
+    fixed_pars = (like_str, data_m, N, int(tmax), int(tcount))
 
     # find MLE
     min_pars, min_ll = find_MLE(inits, fixed_pars, optim)
 
     # run SIR epidemic with MLE parameters
-    SIRepidemic = SIR_R0_model(N, I0, min_pars)
+    SIRepidemic = SIR_R0_model(N, min_pars)
     _, Sf, If, _ = SIRepidemic.run(tmin=0, tmax=int(tmax), tcount=int(tcount))
 
     # plot MLE results
-    plot_data = (Sf, If, data_m, seedval, min_ll, min_pars, min_pars['R0'], St, optim)
+    plot_data = (Sf, If, data_m, j, min_ll, min_pars, min_pars['R0'], optim)
     if bool(save_mode) is True:
         fig_path = '../outputs/horizon%d/outputs_%s/%s/fits/' % \
             (tmax, foldername, like_str)
@@ -197,7 +191,7 @@ def runall(fname, tmax, tcount, like_str='N', nb_ICs=10,
     plot_ML_est(like_str, bool(save_mode), fig_path, plot_data)
 
     # ------- STORE CURRENT RESULTS TO ARRAY -------
-    metares = [min_pars['R0'], min_pars['k'],
+    metares = [min_pars['I0'], min_pars['R0'], min_pars['k'],
                min_pars['n'], min_pars['gamma'],
                min_ll]
 
@@ -221,6 +215,6 @@ if __name__ == '__main__':
         #         like_str (N/P/G, def='N'),
         #         number of initial conditions (def=10)
         #         save_mode (bool, def=True),
-        #         seedval (def=102)
+        #         seedval (def=42)
         #         optimisation method (def='NM')
-        runall('ODE_with_noise_negbin_0p0005.csv', 150, 201, 'N', 15, True, 42, '_NM_')
+        runall('Gillespie.csv', 100, 201, 'N', 15, True, 42, '_NM_')
